@@ -1,0 +1,48 @@
+# Ignore node_modules and build artifacts
+node_modules
+dist
+build
+.cache
+.tmp
+
+# Strapi specific
+.strapi
+.strapi-updater.json
+.strapi-cloud.json
+
+# Environment and config
+.env
+.env.*
+*.env.*
+*.local
+*.test.*
+
+# Log files and runtime stuff
+*.log
+*.sqlite
+*.sqlite3
+pids
+*.pid
+npm-debug.log
+yarn-error.log
+tsbuildinfo
+
+# IDE/editor related
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Other things you probably don't want in image
+coverage
+public/uploads/*
+!public/uploads/.gitkeep
+terraform

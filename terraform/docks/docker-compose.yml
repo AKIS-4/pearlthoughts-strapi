@@ -1,0 +1,38 @@
+services:
+  strapi:
+    image: ${DOCKER_USERNAME}/strapi-app:${IMAGE_TAG}
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - strapi-net
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: strapi
+      POSTGRES_PASSWORD: strapi
+      POSTGRES_DB: strapi
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U strapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - strapi-net
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - strapi
+    networks:
+      - strapi-net
+volumes:
+  postgres_data:
+networks:
+  strapi-net:
