@@ -16,7 +16,7 @@ data "aws_subnets" "default" {
 # Security groups for Load Balancer, ECS and EC2 postgres --------------------------
 
 resource "aws_security_group" "alb_sg" {
-  name = "strapi-alb-sg"
+  name = "abhishekharkar-strapi-alb-sg"
   description = "Allow HTTP access"
   vpc_id = data.aws_vpc.default.id
 
@@ -198,6 +198,7 @@ resource "aws_instance" "postgres_ec2" {
   instance_type = "t3.micro"
   key_name = aws_key_pair.deployer.key_name
   subnet_id = data.aws_subnets.default.ids[0]
+  associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.postgres_sg.id]
 
   user_data = templatefile("${path.module}/../User_data2.sh", {
@@ -211,18 +212,3 @@ resource "aws_instance" "postgres_ec2" {
   }
 }
 
-resource "tls_private_key" "ssh_key" {
-  algorithm = "RSA"
-  rsa_bits = 4096
-}
-
-resource "aws_key_pair" "deployer" {
-  key_name = "abhishekharkar-strapi-key"
-  public_key = tls_private_key.ssh_key.public_key_openssh
-}
-
-resource "local_file" "private_key" {
-  content = tls_private_key.ssh_key.private_key_pem
-  filename = "${path.module}/strapi-key.pem"
-  file_permission = "0400"
-}
