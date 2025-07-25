@@ -1,77 +1,49 @@
 
-# Task 6
+# Task 7
 
-Deploy a Strapi application on AWS using ECS Fargate, managed entirely via Terraform
-
-1) Containerize the Strapi app using Docker.
-
-2) Push the image to  ECR.
-
-3) Write Terraform code to:
-
-    a) Use default VPC
-
-    b) Create ECS Cluster 
-
-    c) Define ECS Task Definition (using Docker image)
-
-    d) Create ECS Service (Fargate launch type)
-
-    e) Create Security Group and ALB
-
-    f) Output public URL of ALB to access Strapi
+ Deploy a strapi application on AWS using ECS Fargate, managed entirely via terraform
+Create a new repo 
+add a git workflow to create a fresh image, apply tagging and push in your registry
+then update the task revision to use the new image
+Accomplish all the above using git action only.
 
 ## Steps
-### 1) Build and Push the Image
+### 1. Update ci.yml 
 
-    a) Create ECR repository
+To Build and Push docker image on ECR repository.
 
-    b) Build Docker Image 
+### 2) Update terraform.yml
 
-    c) Push Image to the ECR.
+IF resources exists THEN create new task definition and update ECS service; 
 
-### 2) CD - Terraform
-
-    a) Create Security groups
-
-    b) Application Load Balancer
-
-    c) ECS Cluster, Task Definition, Service
-
-    d) EC2 instance for Postgres Database
-
-    e) Manage environment variables and secrets 
+ELSE create all new resources (terraform apply); 
  
-### 3) Terraform init and apply
+### 3) Push the Code
+ci.yml will trigger by pushing the code on main branch.
 
-    a) Initialize terraform using : 
+     git push origin main
 
-    ``` terraform init```
-    
-    b) Apply terraform code using :
+### 4) Trigger terraform.yml
+Manually trigger the terraform.yml workflow with image tag as an input.
 
-    ``` terraform apply```
+### 5) Access ALB dns name
 
-### 4) Access ALB dns name 
-
-Access the dns name of ALB on browser, it will load the strapi admin panel
+Access ALB dns name at port 80 to access strapi admin panel deployed on ECS.
 
 ## Results 
 
 
-### ECS Cluster :
-![](t6/ECS.png)
+### ci.yml Workflow :
+![](t7/build.png)
 
+### terraform.yml Workflow : 
+![](t7/terraform.png)
 
+### New Task Definition : 
+![](t7/CreateOfNewTaskDefinition.png)
 
-### EC2 Instance : 
-![](t6/EC2.png)
-
-### ALB : 
-![](t6/ALB.png)
-
-### ECS(strapi) and EC2(postgres) Connection :
-![](t6/POSTGRES.png)
-
-### Strapi Admin Panel on ALB Dns Name : 
-![](t6/STRAPI.png)
+### New Task :
+![](t7/CreationOfNewUpdatedTask.png)
+![](t7/NewTaskWithNewTaskDefinition.png)
+### Strapi Admin Panel on ALB Dns Name Before updating ECS task and After updating ECS task: 
+![](t7/BeforeAndAfter.png)
