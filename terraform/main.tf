@@ -16,7 +16,7 @@ data "aws_subnets" "default" {
 # Security groups for Load Balancer, ECS and EC2 postgres --------------------------
 
 resource "aws_security_group" "alb_sg" {
-  name = "abhishekharkar-strapit-alb-sg"
+  name = "abhishekharkar-strapi-alb-sg"
   description = "Allow HTTP access"
   vpc_id = data.aws_vpc.default.id
 
