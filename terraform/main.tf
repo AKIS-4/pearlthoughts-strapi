@@ -196,7 +196,6 @@ resource "aws_ecs_service" "strapi" {
 resource "aws_instance" "postgres_ec2" {
   ami = "ami-0d1b5a8c13042c939" 
   instance_type = "t3.micro"
-  key_name = aws_key_pair.deployer.key_name
   subnet_id = data.aws_subnets.default.ids[0]
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.postgres_sg.id]
