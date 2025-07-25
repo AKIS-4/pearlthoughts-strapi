@@ -1,0 +1,87 @@
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+        image_tag:
+          description: 'Docker image tag (e.g., strapi-20250722143000)'
+          required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set IMAGE_TAG from input
+        run: |
+          echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+
+      - name: Create terraform.tfvars with all variables
+        run: |
+          {
+            echo "APP_KEYS = \"${{ secrets.APP_KEYS }}\""
+            echo "API_TOKEN_SALT = \"${{ secrets.API_TOKEN_SALT }}\""
+            echo "ADMIN_JWT_SECRET = \"${{ secrets.ADMIN_JWT_SECRET }}\""
+            echo "TRANSFER_TOKEN_SALT = \"${{ secrets.TRANSFER_TOKEN_SALT }}\""
+            echo "ENCRYPTION_KEY = \"${{ secrets.ENCRYPTION_KEY }}\""    
+            echo "DATABASE_NAME = \"${{ secrets.DATABASE_NAME }}\""
+            echo "DATABASE_USERNAME = \"${{ secrets.DATABASE_USERNAME }}\""
+            echo "DATABASE_PASSWORD = \"${{ secrets.DATABASE_PASSWORD }}\""
+            echo "JWT_SECRET = \"${{ secrets.JWT_SECRET }}\""
+            echo "ecs_executation_role = \"${{ secrets.ECS_EXECUTION_ROLE }}\""
+            echo "ecr_image = \"${{ secrets.ECR_REPO }}:${{ env.IMAGE_TAG }}\""
+          } > terraform/terraform.tfvars
+
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: cd terraform && terraform init
+
+      - name: Terraform Plan
+        run: cd terraform && terraform plan
+
+      - name: Terraform Apply/Update ECS Task
+        env:
+          IMAGE: "${{ secrets.ECR_REPO }}:${{ env.IMAGE_TAG }}"
+        run: |
+          if aws ecs describe-clusters --clusters abhishekharkar-strapi-cluster --region us-east-2 --query "clusters[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
+
+            TASK_DEF=$(aws ecs describe-task-definition \
+              --task-definition abhishekharkar-strapi-task \
+              --region us-east-2)
+
+            NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
+              --arg IMAGE "$IMAGE" \
+              '.taskDefinition |
+              .containerDefinitions[0].image = $IMAGE |
+              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+
+            NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+              --region us-east-2 \
+              --cli-input-json "$NEW_TASK_DEF" \
+              | jq -r '.taskDefinition.taskDefinitionArn')
+
+            aws ecs update-service \
+              --cluster abhishekharkar-strapi-cluster \
+              --service abhishekharkar-strapi-service \
+              --task-definition "$NEW_TASK_DEF_ARN" \
+              --region us-east-2
+          else
+            cd terraform && terraform apply -auto-approve
+          fi
+
+
+
