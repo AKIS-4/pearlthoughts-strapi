@@ -57,7 +57,16 @@ jobs:
         env:
           IMAGE: "${{ secrets.ECR_REPO }}:${{ env.IMAGE_TAG }}"
         run: |
-          if aws ecs describe-clusters --clusters abhishekharkar-strapi-cluster --region us-east-2 --query "clusters[0].status" --output text 2>/dev/null | grep -q "ACTIVE"; then
+         CLUSTER_STATUS=$(aws ecs describe-clusters \
+            --clusters abhishekharkar-strapi-cluster \
+            --region us-east-2 \
+            --query "clusters[0].status" \
+            --output text 2>/dev/null)
+
+          if [[ "$CLUSTER_STATUS" == "INACTIVE" || "$CLUSTER_STATUS" == "None" ]]; then
+
+            cd terraform && terraform apply -auto-approve
+          else 
 
             TASK_DEF=$(aws ecs describe-task-definition \
               --task-definition abhishekharkar-strapi-task \
@@ -79,8 +88,6 @@ jobs:
               --service abhishekharkar-strapi-service \
               --task-definition "$NEW_TASK_DEF_ARN" \
               --region us-east-2
-          else
-            cd terraform && terraform apply -auto-approve
           fi
 
 
