@@ -134,6 +134,10 @@ output "alb_url" {
 
 resource "aws_ecs_cluster" "strapi_cluster" {
   name = "abhishekharkar-strapi-cluster"
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 resource "aws_ecs_task_definition" "strapi" {
@@ -162,6 +166,8 @@ resource "aws_ecs_task_definition" "strapi" {
     DATABASE_PASSWORD = var.DATABASE_PASSWORD
     DATABASE_SSL = "false"
   })
+
+  depends_on = [aws_cloudwatch_log_group.strapi]
 }
 
 resource "aws_ecs_service" "strapi" {
@@ -199,7 +205,7 @@ resource "aws_ecs_service" "strapi" {
 resource "aws_instance" "postgres_ec2" {
   ami = "ami-0d1b5a8c13042c939" 
   instance_type = "t3.micro"
-  subnet_id = data.aws_subnets.default.ids[0]
+  subnet_id = "subnet-0f768008c6324831f"
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.postgres_sg.id]
 
@@ -212,5 +218,183 @@ resource "aws_instance" "postgres_ec2" {
   tags = {
     Name = "abhishekharkar-strapi"
   }
+}
+
+# Cloudwatch Logs and Metrics ----------------------------------------------------- 
+
+resource "aws_cloudwatch_log_group" "strapi" {
+  name              = "/ecs/abhishekharkar-strapi"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_cpu" {
+  alarm_name          = "abhishekharkar-HighCPUUtilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 70
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.strapi_cluster.name
+    ServiceName = aws_ecs_service.strapi.name
+  }
+
+  alarm_description = "Alarm when ECS service CPU exceeds 70%"
+  treat_missing_data = "notBreaching"
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_memory" {
+  alarm_name          = "abhishekharkar-HighMemoryUtilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 75
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.strapi_cluster.name
+    ServiceName = aws_ecs_service.strapi.name
+  }
+
+  alarm_description = "Alarm when ECS service memory exceeds 75%"
+  treat_missing_data = "notBreaching"
+}
+
+resource "aws_cloudwatch_metric_alarm" "unhealthy_tasks" {
+  alarm_name          = "abhishekharkar-UnhealthyTaskCount"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+
+  dimensions = {
+    LoadBalancer = aws_lb.strapi_alb.dns_name
+    TargetGroup  = aws_lb_target_group.strapi_tg.arn_suffix
+  }
+
+  alarm_description = "Alarm when ECS tasks are unhealthy (via ALB)"
+  treat_missing_data = "breaching"
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_latency" {
+  alarm_name          = "abhishekharkar-HighLatency"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "TargetResponseTime"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 2.0
+
+  dimensions = {
+    LoadBalancer = aws_lb.strapi_alb.dns_name
+    TargetGroup  = aws_lb_target_group.strapi_tg.arn_suffix
+  }
+
+  alarm_description = "Alarm when application latency exceeds 2 seconds"
+  treat_missing_data = "notBreaching"
+}
+
+resource "aws_cloudwatch_dashboard" "strapi_dashboard" {
+  dashboard_name = "abhishekharkar-Strapi-Dashboard"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type = "metric",
+        x    = 0,
+        y    = 0,
+        width = 12,
+        height = 6,
+        properties = {
+          title = "CPU Utilization",
+          view = "timeSeries",
+          region = "us-east-2",
+          metrics = [
+            [ "AWS/ECS", "CPUUtilization", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ]
+          ],
+          period = 60,
+          stat   = "Average"
+        }
+      },
+      {
+        type = "metric",
+        x    = 12,
+        y    = 0,
+        width = 12,
+        height = 6,
+        properties = {
+          title = "Memory Utilization",
+          view = "timeSeries",
+          region = "us-east-2",
+          metrics = [
+            [ "AWS/ECS", "MemoryUtilization", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ]
+          ],
+          period = 60,
+          stat   = "Average"
+        }
+      },
+      {
+        type = "metric",
+        x    = 0,
+        y    = 6,
+        width = 12,
+        height = 6,
+        properties = {
+          title = "Running Task Count",
+          view = "timeSeries",
+          region = "us-east-2",
+          metrics = [
+            [ "AWS/ECS", "RunningTaskCount", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ]
+          ],
+          period = 60,
+          stat   = "Average"
+        }
+      },
+      {
+        type = "metric",
+        x    = 12,
+        y    = 6,
+        width = 12,
+        height = 6,
+        properties = {
+          title = "Network I/O (Container Insights)",
+          view = "timeSeries",
+          region = "us-east-2",
+          metrics = [
+            [ "ECS/ContainerInsights", "NetworkRxBytes", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ],
+            [ ".", "NetworkTxBytes", ".", ".", ".", "." ]
+          ],
+          stat = "Sum",
+          period = 60
+        }
+      },
+      {
+        type = "metric",
+        x    = 0,
+        y    = 12,
+        width = 24,
+        height = 6,
+        properties = {
+          title = "ALB Target Response Time",
+          view = "timeSeries",
+          region = "us-east-2",
+          metrics = [
+            [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.strapi_alb.arn_suffix, "TargetGroup", aws_lb_target_group.strapi_tg.arn_suffix ]
+          ],
+          period = 60,
+          stat   = "Average"
+        }
+      }
+    ]
+  })
 }
 

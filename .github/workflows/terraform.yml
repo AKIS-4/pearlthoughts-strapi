@@ -90,5 +90,10 @@ jobs:
               --region us-east-2
           fi
 
+      - name: Terraform Destroy
+        run: |
+          sleep 900
+          cd terraform && terraform destroy -auto-approve 
+
 
 

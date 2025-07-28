@@ -9,6 +9,14 @@
         "protocol": "tcp"
       }
     ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/abhishekharkar-strapi",
+        "awslogs-region": "us-east-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
     "environment": [
       { "name": "APP_KEYS", "value": "${APP_KEYS}" },
       { "name": "API_TOKEN_SALT", "value": "${API_TOKEN_SALT}" },
