@@ -92,7 +92,7 @@ jobs:
 
       - name: Terraform Destroy
         run: |
-          sleep 900
+          sleep 1800
           cd terraform && terraform destroy -auto-approve 
 
 

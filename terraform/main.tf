@@ -281,7 +281,7 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_tasks" {
   }
 
   alarm_description = "Alarm when ECS tasks are unhealthy (via ALB)"
-  treat_missing_data = "breaching"
+  treat_missing_data = "notBreaching"
 }
 
 resource "aws_cloudwatch_metric_alarm" "high_latency" {
@@ -295,7 +295,7 @@ resource "aws_cloudwatch_metric_alarm" "high_latency" {
   threshold           = 2.0
 
   dimensions = {
-    LoadBalancer = aws_lb.strapi_alb.dns_name
+    LoadBalancer = aws_lb.strapi_alb.arn_suffix
     TargetGroup  = aws_lb_target_group.strapi_tg.arn_suffix
   }
 
@@ -337,23 +337,6 @@ resource "aws_cloudwatch_dashboard" "strapi_dashboard" {
           region = "us-east-2",
           metrics = [
             [ "AWS/ECS", "MemoryUtilization", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ]
-          ],
-          period = 60,
-          stat   = "Average"
-        }
-      },
-      {
-        type = "metric",
-        x    = 0,
-        y    = 6,
-        width = 12,
-        height = 6,
-        properties = {
-          title = "Running Task Count",
-          view = "timeSeries",
-          region = "us-east-2",
-          metrics = [
-            [ "AWS/ECS", "RunningTaskCount", "ClusterName", aws_ecs_cluster.strapi_cluster.name, "ServiceName", aws_ecs_service.strapi.name ]
           ],
           period = 60,
           stat   = "Average"
