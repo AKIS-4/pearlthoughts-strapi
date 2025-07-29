@@ -142,10 +142,10 @@ resource "aws_ecs_cluster" "strapi_cluster" {
 
 resource "aws_ecs_task_definition" "strapi" {
   family = "abhishekharkar-strapi-task"
-  requires_compatibilities = ["FARGATE"]
   network_mode = "awsvpc"
   cpu = "512"
   memory = "1024"
+  requires_compatibilities = ["FARGATE"]
   execution_role_arn = var.ecs_executation_role
 
   container_definitions = templatefile("${path.module}/ecs_container_definitions.tmpl", {
@@ -173,9 +173,13 @@ resource "aws_ecs_task_definition" "strapi" {
 resource "aws_ecs_service" "strapi" {
   name = "abhishekharkar-strapi-service"
   cluster = aws_ecs_cluster.strapi_cluster.id
-  launch_type = "FARGATE"
   task_definition = aws_ecs_task_definition.strapi.arn
   desired_count = 1
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
 
   network_configuration {
     subnets = [
