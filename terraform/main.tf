@@ -93,7 +93,6 @@ resource "aws_lb" "strapi_alb" {
     "subnet-0f768008c6324831f",
     "subnet-0cc2ddb32492bcc41"
   ]
-
   enable_deletion_protection = false
 }
 
@@ -117,12 +116,17 @@ resource "aws_lb_target_group" "strapi_tg" {
 
 resource "aws_lb_listener" "strapi_listener" {
   load_balancer_arn = aws_lb.strapi_alb.arn
-  port = 80
-  protocol = "HTTP"
+  port              = 80
+  protocol          = "HTTP"
 
   default_action {
     type = "forward"
-    target_group_arn = aws_lb_target_group.strapi_tg.arn
+    forward {
+      target_group {
+        arn = aws_lb_target_group.strapi_tg.arn
+        weight = 1
+      }
+    }
   }
 }
 
@@ -183,8 +187,8 @@ resource "aws_ecs_service" "strapi" {
 
   network_configuration {
     subnets = [
-      "subnet-0f768008c6324831f",
-      "subnet-0cc2ddb32492bcc41"
+    "subnet-0f768008c6324831f",
+    "subnet-0cc2ddb32492bcc41"
     ]
     assign_public_ip = true
     security_groups = [aws_security_group.ecs_sg.id]
@@ -196,6 +200,10 @@ resource "aws_ecs_service" "strapi" {
     aws_lb_target_group.strapi_tg,
     aws_lb_listener.strapi_listener
   ]
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.strapi_tg.arn
@@ -209,7 +217,7 @@ resource "aws_ecs_service" "strapi" {
 resource "aws_instance" "postgres_ec2" {
   ami = "ami-0d1b5a8c13042c939" 
   instance_type = "t3.micro"
-  subnet_id = "subnet-0f768008c6324831f"
+  subnet_id = "subnet-03e27b60efa8df9f0"
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.postgres_sg.id]
 
@@ -224,7 +232,7 @@ resource "aws_instance" "postgres_ec2" {
   }
 }
 
-# Cloudwatch Logs and Metrics ----------------------------------------------------- 
+# Cloudwatch Logs and Metrics ------------------------------------------------------ 
 
 resource "aws_cloudwatch_log_group" "strapi" {
   name              = "/ecs/abhishekharkar-strapi"
@@ -383,5 +391,101 @@ resource "aws_cloudwatch_dashboard" "strapi_dashboard" {
       }
     ]
   })
+}
+
+# Codedeploy Blue-Green Deployment --------------------------------------------------
+
+resource "aws_lb_target_group" "strapi_tg_green" {
+  name        = "abhishekharkar-strapi-green"
+  port        = 1337
+  protocol    = "HTTP"
+  vpc_id      = data.aws_vpc.default.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    matcher             = "200-399"
+  }
+}
+
+resource "aws_codedeploy_app" "strapi" {
+  name             = "abhishekharkar-strapi-codedeploy"
+  compute_platform = "ECS"
+}
+
+resource "aws_iam_role" "codedeploy_role" {
+  name = "abhishekharkar-strapi-codedeploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Principal = {
+        Service = "codedeploy.amazonaws.com"
+      }
+      Effect = "Allow"
+      Sid = ""
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_role_attachment" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
+}
+
+resource "aws_codedeploy_deployment_group" "strapi" {
+  app_name               = aws_codedeploy_app.strapi.name
+  deployment_group_name  = "strapi-deployment-group"
+  service_role_arn       = aws_iam_role.codedeploy_role.arn
+  deployment_config_name = "CodeDeployDefault.ECSCanary10Percent5Minutes"
+
+  deployment_style {
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_type   = "BLUE_GREEN"
+  }
+
+  blue_green_deployment_config {
+
+    terminate_blue_instances_on_deployment_success {
+      action                            = "TERMINATE"
+      termination_wait_time_in_minutes  = 5
+    }
+
+    deployment_ready_option {
+      action_on_timeout = "CONTINUE_DEPLOYMENT" 
+      wait_time_in_minutes = 0                  
+    }
+  }
+
+  ecs_service {
+    cluster_name = aws_ecs_cluster.strapi_cluster.name
+    service_name = aws_ecs_service.strapi.name
+  }
+
+  load_balancer_info {
+    target_group_pair_info {
+      target_group {
+        name = aws_lb_target_group.strapi_tg.name
+      }
+
+      target_group {
+        name = aws_lb_target_group.strapi_tg_green.name
+      }
+
+      prod_traffic_route {
+        listener_arns = [aws_lb_listener.strapi_listener.arn]
+      }
+    }
+  }
+
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
 }
 

@@ -1,49 +1,52 @@
 
-# Task 7
+# Task 11
 
- Deploy a strapi application on AWS using ECS Fargate, managed entirely via terraform
-Create a new repo 
-add a git workflow to create a fresh image, apply tagging and push in your registry
-then update the task revision to use the new image
-Accomplish all the above using git action only.
+Configure AWS resources for Blue/Green deployment of the Strapi app:
+
+1) Create an ECS cluster and service with Fargate launch type.
+2) Set up an Application Load Balancer (ALB) with two Target Groups (Blue and Green) for traffic routing.
+3) Configure ALB security group to allow HTTP (port 80) and HTTPS (port 443) traffic.
+4) Define an ECS Task Definition as a placeholder, to be updated dynamically.
+5) Create an AWS CodeDeploy Application and Deployment Group for ECS with the following settings:
+6) Deployment strategy: CodeDeployDefault.ECSCanary10Percent5Minutes (or AllAtOnce if preferred).
+7) Enable automatic rollback on deployment failure.
+Terminate old tasks after successful deployment.
+8) Set up an ECS security group to allow traffic from the ALB on port 1337.
+Configure the ALB Listener to switch traffic between Blue and Green Target Groups.
+ 
 
 ## Steps
-### 1. Update ci.yml 
+### 1. Update main.tf
 
-To Build and Push docker image on ECR repository.
+a) Create 2 target group (blue and green)
 
-### 2) Update terraform.yml
+b) Create codeDeploy application and iam role with policy 'AWSCodeDeployRoleForECS'
 
-IF resources exists THEN create new task definition and update ECS service; 
+c) Create Deployment group: 
+     (1) BLUE_GREEN deployment style with WITH_TRAFFIC_CONTROL
+     (2) config with termination after 5 minutes and ready option block
+     (3) attach ECS service and cluster
+     (4) load balancer info like blue tg , green tg and arn of ALB listener
+     (5) auto rollback configuration on failure of deployment
+     (6) deployment config name will be 'CodeDeployDefault.ECSCanary10Percent5Minutes'
+     
+### 2. Run Terraform 
 
-ELSE create all new resources (terraform apply); 
- 
-### 3) Push the Code
-ci.yml will trigger by pushing the code on main branch.
-
-     git push origin main
-
-### 4) Trigger terraform.yml
-Manually trigger the terraform.yml workflow with image tag as an input.
-
-### 5) Access ALB dns name
-
-Access ALB dns name at port 80 to access strapi admin panel deployed on ECS.
+     terraform init
+     terraform apply
 
 ## Results 
 
 
-### ci.yml Workflow :
-![](t7/build.png)
+### Before Blue-Green deployment:
+![](t11/B_map.png)
 
-### terraform.yml Workflow : 
-![](t7/terraform.png)
+### After 10% traffic shift: 
+![](t11/canary_cd.png)
+![](t11/A_listener.png)
+![](t11/A_map.png)
+### After 100% traffic shift: 
+![](t11/A_listener2.png)
 
-### New Task Definition : 
-![](t7/CreateOfNewTaskDefinition.png)
-
-### New Task :
-![](t7/CreationOfNewUpdatedTask.png)
-![](t7/NewTaskWithNewTaskDefinition.png)
-### Strapi Admin Panel on ALB Dns Name Before updating ECS task and After updating ECS task: 
-![](t7/BeforeAndAfter.png)
+### Strapi Admin Panel on ALB Dns Name:  
+![](t11/result.png)
