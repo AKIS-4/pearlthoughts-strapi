@@ -83,17 +83,16 @@ jobs:
               --cli-input-json "$NEW_TASK_DEF" \
               | jq -r '.taskDefinition.taskDefinitionArn')
 
-            aws ecs update-service \
-              --cluster abhishekharkar-strapi-cluster \
-              --service abhishekharkar-strapi-service \
-              --task-definition "$NEW_TASK_DEF_ARN" \
-              --region us-east-2
-          fi
+            sed -i "s|PLACEHOLDER_TASK_DEF_ARN|$NEW_TASK_DEF_ARN|" terraform/appspec.yaml
 
-      - name: Terraform Destroy
-        run: |
-          sleep 1800
-          cd terraform && terraform destroy -auto-approve 
+            aws deploy create-deployment \
+            --application-name abhishekharkar-strapi-codedeploy \
+            --deployment-group-name strapi-deployment-group \
+            --revision revisionType=AppSpecContent,appSpecContent={content="$(cat terraform/appspec.yaml | jq -Rs .)"} \
+            --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
+            --region us-east-2
+
+          fi
 
 
 
