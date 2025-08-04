@@ -83,7 +83,7 @@ jobs:
               --cli-input-json "$NEW_TASK_DEF" \
               | jq -r '.taskDefinition.taskDefinitionArn')
 
-            sed -i "s|PLACEHOLDER_TASK_DEF_ARN|$NEW_TASK_DEF_ARN|" terraform/appspec.yaml
+            sed -i "s|PLACEHOLDER_TASK_DEF_ARN|$NEW_TASK_DEF_ARN|" terraform/appspec.json
 
             aws deploy create-deployment \
             --application-name abhishekharkar-strapi-codedeploy \
