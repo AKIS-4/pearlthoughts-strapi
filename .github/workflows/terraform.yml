@@ -83,6 +83,7 @@ jobs:
               --cli-input-json "$NEW_TASK_DEF" \
               | jq -r '.taskDefinition.taskDefinitionArn')
 
+            NEW_TASK_DEF_ARN=$(echo "$NEW_TASK_DEF_ARN" | tr -d '\n')
             sed -i "s|PLACEHOLDER_TASK_DEF_ARN|$NEW_TASK_DEF_ARN|" terraform/appspec.yaml
 
             aws deploy create-deployment \
