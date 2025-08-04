@@ -95,7 +95,7 @@ jobs:
           fi
 
       - name: Wait for deployment to complete
-        run: sleep 600
+        run: sleep 1800
 
       - name: Terraform Destroy (optional)
         run: cd terraform && terraform destroy -auto-approve
