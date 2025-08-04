@@ -92,8 +92,13 @@ jobs:
             --revision revisionType=AppSpecContent,appSpecContent={content="$(cat terraform/appspec.yaml | jq -Rs .)"} \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
             --region us-east-2
-
           fi
+
+      - name: Wait for deployment to complete
+        run: sleep 2700
+
+      - name: Terraform Destroy (optional)
+        run: cd terraform && terraform destroy -auto-approve
 
 
 
