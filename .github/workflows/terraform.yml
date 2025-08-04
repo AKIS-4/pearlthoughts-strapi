@@ -89,7 +89,7 @@ jobs:
             --application-name abhishekharkar-strapi-codedeploy \
             --deployment-group-name strapi-deployment-group \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
-            --revision "revisionType=AppSpecContent,appSpecContent={content=$(jq -c . appspec.json | jq -Rs .)}" \
+            --revision "revisionType=AppSpecContent,appSpecContent={content=$(jq -c . terraform/appspec.json | jq -Rs .)}" \
             --region us-east-2
 
           fi
