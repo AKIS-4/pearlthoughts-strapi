@@ -85,13 +85,12 @@ jobs:
 
             sed -i "s|PLACEHOLDER_TASK_DEF_ARN|$NEW_TASK_DEF_ARN|" terraform/appspec.yaml
 
-            CONTENT=$(jq -Rs . < terraform/appspec.yaml)
             aws deploy create-deployment \
-              --application-name abhishekharkar-strapi-codedeploy \
-              --deployment-group-name strapi-deployment-group \
-              --revision revisionType=AppSpecContent,appSpecContent={content:$CONTENT} \
-              --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
-              --region us-east-2
+            --application-name abhishekharkar-strapi-codedeploy \
+            --deployment-group-name strapi-deployment-group \
+            --revision type=AppSpecContent,appSpecContent="{content=$(jq -c -Rs . < terraform/appspec.yaml)}" \
+            --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
+            --region us-east-2
 
           fi
 
